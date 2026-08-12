@@ -39,10 +39,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--paraphrase",
         action="store_true",
-        help=(
-            "Also break statistical/logit watermarks (heuristic; "
-            "set DEWATERMARK_REWRITE_CMD for LLM rewrite)"
-        ),
+        help="Break statistical/logit watermarks (fast heuristic jitter)",
+    )
+    ap.add_argument(
+        "--rewrite",
+        action="store_true",
+        help="Break statistical watermarks via local LLM rewrite "
+        "(Ollama, default qwen3:14b). Strongest attack. Never use Claude.",
+    )
+    ap.add_argument(
+        "--model",
+        default="qwen3:14b",
+        help="Ollama model for --rewrite (default: qwen3:14b)",
+    )
+    ap.add_argument(
+        "--translate",
+        action="store_true",
+        help="Break statistical watermarks via round-trip translation "
+        "(en->de->en; argostranslate local if installed, else MyMemory API)",
     )
     ap.add_argument(
         "--image",
@@ -97,6 +111,25 @@ def main(argv: list[str] | None = None) -> int:
             report["paraphrase"] = "external"
         cleaned = rewritten
         report["after_paraphrase_chars"] = len(cleaned)
+
+    if args.translate:
+        from .translate import round_trip
+
+        cleaned, trep = round_trip(cleaned)
+        report["translate"] = trep
+        if trep.get("warning"):
+            print(f"  ! {trep['warning']}", file=sys.stderr)
+
+    if args.rewrite:
+        from .rewrite import rewrite
+
+        try:
+            cleaned, backend = rewrite(cleaned, model=args.model)
+            report["rewrite_backend"] = backend
+        except Exception as e:
+            print(f"dewatermark: rewrite failed ({e}); falling back to heuristic", file=sys.stderr)
+            cleaned = heuristic_perturb(cleaned)
+            report["rewrite_backend"] = "heuristic-fallback"
 
     # --- write ---
     if args.clip:
