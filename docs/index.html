@@ -322,7 +322,7 @@ function setStatus(msg, type) {
 
 function renderReport(report) {
   if (report.suspicious_total === 0) {
-    $reportBody.innerHTML = '<span class="stat">No suspicious characters found. Text appears clean.</span>';
+    $reportBody.innerHTML = '<span class="stat">No hidden Unicode characters found. Claude/GPT statistical watermarks are not character-based, so they won\'t appear here. Use Scrub + Paraphrase to break them.</span>';
     $report.classList.add('visible');
     return;
   }
@@ -361,9 +361,15 @@ $btnScrub.addEventListener('click', () => {
   const removedCount = Object.values(result.removed).reduce((a, b) => a + b, 0);
   const mappedCount = Object.values(result.mapped).reduce((a, b) => a + b, 0);
   if (result.before.suspicious_total > 0) {
-    setStatus('Stripped ' + removedCount + ' hidden chars, normalized ' + mappedCount + ' more. Output is clean.', 'success');
+    setStatus('Stripped ' + removedCount + ' hidden chars, normalized ' + mappedCount + ' more.' + ($optParaphrase.checked ? ' Paraphrase applied to break statistical marks.' : ''), 'success');
   } else {
-    setStatus('No steganography detected. Text was already clean.' + ($optParaphrase.checked ? ' Paraphrase applied.' : ''), 'success');
+    let msg = 'No hidden Unicode characters found.';
+    if ($optParaphrase.checked) {
+      msg += ' Paraphrase applied to break statistical/model-level watermarks (e.g. Claude, GPT).';
+    } else {
+      msg += ' Note: Claude/GPT watermarks are statistical, not character-based. Enable Paraphrase to break them.';
+    }
+    setStatus(msg, $optParaphrase.checked ? 'success' : '');
   }
 });
 
@@ -376,7 +382,7 @@ $btnScan.addEventListener('click', () => {
   if (report.suspicious_total > 0) {
     setStatus('Found ' + report.suspicious_total + ' suspicious characters across ' + report.by_type.length + ' types.', 'danger');
   } else {
-    setStatus('No suspicious characters found. Text appears clean.', 'success');
+    setStatus('No hidden Unicode characters found. Note: Claude/GPT statistical watermarks are not character-based and won\'t show up in a scan. Use Scrub + Paraphrase to break them.', '');
   }
 });
 

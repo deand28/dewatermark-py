@@ -142,7 +142,8 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"  - {k}: {v}", file=sys.stderr)
             if not args.paraphrase:
                 print(
-                    "  ! unicode layer only - Claude model-level marks need --paraphrase",
+                    "  ! unicode layer only - Claude/GPT model-level marks are statistical,"
+                    " not character-based. Use --paraphrase to break them.",
                     file=sys.stderr,
                 )
 
