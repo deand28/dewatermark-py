@@ -1,0 +1,161 @@
+Metadata-Version: 2.4
+Name: dewatermark
+Version: 0.1.0
+Summary: Strip AI text watermarks, invisible Unicode steganography, and file provenance marks.
+Author: Dean Diego
+License: MIT License
+        
+        Copyright (c) 2026 Dean Diego
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/deandiego/dewatermark-py
+Keywords: ai,watermark,steganography,c2pa,unicode,anthropic,claude,provenance
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Security
+Classifier: Topic :: Text Processing :: General
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: image
+Requires-Dist: pillow>=10; extra == "image"
+Provides-Extra: build
+Requires-Dist: pyinstaller>=6; extra == "build"
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Dynamic: license-file
+
+# dewatermark
+
+Strip AI text watermarks, invisible Unicode steganography, and file provenance marks.
+
+## Why
+
+AI companies train on public data, then brand model output with imperceptible watermarks and signed metadata as if they own the resulting knowledge. This tool removes those marks from text and images you control.
+
+## What it handles
+
+| Layer | Mechanism | Beaten by |
+|---|---|---|
+| **Unicode stego** | ZWSP, ZWNJ, ZWJ, BOM, soft-hyphen, bidi controls, variation selectors, Unicode Tags, format/control chars, private-use | Character-level scrub |
+| **Homoglyphs** | Cyrillic/Greek/fullwidth lookalikes | Confusable normalization + NFKC |
+| **Exotic spaces** | NBSP, en/em/thin/hair, ideographic | Space normalization |
+| **Statistical watermark** | Model-level logit biasing (Kirchenbauer-style, Claude Aug 2026) | `--paraphrase` heuristic or external rewrite |
+| **File provenance** | C2PA signed manifests on PNG/JPG/SVG | `--image` clean re-encode |
+
+## Install
+
+```bash
+# from source
+git clone https://github.com/deandiego/dewatermark-py.git
+cd dewatermark-py
+pip install -e .
+
+# with image support
+pip install -e ".[image]"
+
+# standalone binary (no Python needed on target)
+pip install -e ".[build]"
+pyinstaller scripts/build_binary.spec
+# → dist/dewatermark
+```
+
+## Usage
+
+```bash
+# pipe (daily driver)
+pbpaste | dewatermark | pbcopy
+
+# clipboard round-trip
+dewatermark --clip
+
+# also break statistical/model-level marks
+dewatermark --clip --paraphrase
+
+# scan only (JSON report)
+dewatermark --scan notes.txt
+
+# file → file.clean
+dewatermark notes.txt
+
+# overwrite
+dewatermark -i notes.txt
+
+# image: kill C2PA/XMP/EXIF
+dewatermark --image shot.png          # → shot.clean.png
+
+# full report on stderr
+dewatermark --json notes.txt
+```
+
+### External rewrite (stronger paraphrase)
+
+For maximum statistical-watermark break, route through a non-watermarked model:
+
+```bash
+export DEWATERMARK_REWRITE_CMD='claude -p "Rewrite preserving meaning and structure:"'
+# or any stdin→stdout rewriter
+dewatermark --paraphrase input.txt
+```
+
+## Python API
+
+```python
+from dewatermark import scan_text, scrub_text, heuristic_perturb
+
+# detect
+report = scan_text(text)
+print(report["by_type"])
+
+# clean
+cleaned, report = scrub_text(text)
+
+# break statistical marks
+perturbed = heuristic_perturb(cleaned)
+```
+
+## Distribution
+
+### PyPI (when ready)
+```bash
+python -m build
+twine upload dist/*
+pip install dewatermark
+```
+
+### Standalone binary
+```bash
+pip install ".[build]"
+pyinstaller scripts/build_binary.spec
+scp dist/dewatermark teammate@host:~/bin/
+```
+
+## Limits
+
+- Unicode scrub is complete for character-insertion stego.
+- Claude's model-level mark **requires** `--paraphrase` or manual rewrite. Heuristic weakens it; `DEWATERMARK_REWRITE_CMD` through a non-watermarked model kills it.
+- Short fragments have weak/no signal.
+- Not for misrepresenting AI content as human where law or contract requires disclosure.
+
+## License
+
+MIT

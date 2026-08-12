@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dewatermark"
+version = "0.1.0"
+description = "Strip AI text watermarks, invisible Unicode steganography, and file provenance marks."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+authors = [{name = "Dean Diego"}]
+keywords = ["ai", "watermark", "steganography", "c2pa", "unicode", "anthropic", "claude", "provenance"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Security",
+    "Topic :: Text Processing :: General",
+]
+dependencies = []
+
+[project.optional-dependencies]
+image = ["pillow>=10"]
+build = ["pyinstaller>=6"]
+dev = ["pytest>=7", "pytest-cov"]
+
+[project.scripts]
+dewatermark = "dewatermark.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/deandiego/dewatermark-py"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

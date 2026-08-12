@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+src/dewatermark/__init__.py
+src/dewatermark/__main__.py
+src/dewatermark/cli.py
+src/dewatermark/core.py
+src/dewatermark/image.py
+src/dewatermark.egg-info/PKG-INFO
+src/dewatermark.egg-info/SOURCES.txt
+src/dewatermark.egg-info/dependency_links.txt
+src/dewatermark.egg-info/entry_points.txt
+src/dewatermark.egg-info/requires.txt
+src/dewatermark.egg-info/top_level.txt
+tests/test_core.py

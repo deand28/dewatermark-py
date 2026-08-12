@@ -1,0 +1,2 @@
+[console_scripts]
+dewatermark = dewatermark.cli:main
