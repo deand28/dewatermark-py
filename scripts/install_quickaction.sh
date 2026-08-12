@@ -22,7 +22,7 @@ if [ -x "$HOME/.hermes/hermes-agent/venv/bin/python3" ]; then
   PYTHON_BIN="$HOME/.hermes/hermes-agent/venv/bin/python3"
 fi
 
-if [ "$1" = "uninstall" ]; then
+if [ "${1:-}" = "uninstall" ]; then
   echo "Removing '$ACTION_NAME' Quick Action..."
   rm -rf "$WORKFLOW_FILE"
   echo "Done."
