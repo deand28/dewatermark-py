@@ -39,7 +39,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--paraphrase",
         action="store_true",
-        help="Break statistical/logit watermarks (fast heuristic jitter)",
+        help="Fast synonym jitter. WEAK: does not reliably break statistical "
+        "watermarks. Use --rewrite or --translate for real breaks.",
     )
     ap.add_argument(
         "--rewrite",
@@ -127,9 +128,14 @@ def main(argv: list[str] | None = None) -> int:
             cleaned, backend = rewrite(cleaned, model=args.model)
             report["rewrite_backend"] = backend
         except Exception as e:
-            print(f"dewatermark: rewrite failed ({e}); falling back to heuristic", file=sys.stderr)
+            print(
+                f"dewatermark: LLM rewrite FAILED ({e}). "
+                "Heuristic fallback does NOT reliably break statistical watermarks. "
+                "Start Ollama (ollama serve) and re-run, or use --translate.",
+                file=sys.stderr,
+            )
             cleaned = heuristic_perturb(cleaned)
-            report["rewrite_backend"] = "heuristic-fallback"
+            report["rewrite_backend"] = "heuristic-fallback-WEAK"
 
     # --- write ---
     if args.clip:
@@ -150,6 +156,15 @@ def main(argv: list[str] | None = None) -> int:
         dest_label = "stdout"
 
     found = report["before"]["suspicious_total"] > 0 or args.paraphrase
+    if (args.rewrite or args.translate or args.paraphrase) and not args.quiet:
+        import re as _re
+
+        if _re.search(r"```.*?```", cleaned, _re.S):
+            print(
+                "  ! code blocks pass through unchanged: any watermark tokens "
+                "inside fenced code survive. Copy code sections manually if needed.",
+                file=sys.stderr,
+            )
     if not args.quiet:
         if args.json:
             report["src"] = src_label
