@@ -60,12 +60,29 @@ def main(argv: list[str] | None = None) -> int:
         "(en->de->en; argostranslate local if installed, else MyMemory API)",
     )
     ap.add_argument(
+        "--serve",
+        action="store_true",
+        help="Run the local web UI with Deep Rewrite (127.0.0.1, no data leaves the machine)",
+    )
+    ap.add_argument(
+        "--port",
+        type=int,
+        default=8373,
+        help="Port for --serve (default 8373)",
+    )
+    ap.add_argument(
         "--image",
         action="store_true",
         help="Treat path as image; strip C2PA/XMP/EXIF via clean re-encode",
     )
     ap.add_argument("-q", "--quiet", action="store_true")
     args = ap.parse_args(argv)
+
+    if args.serve:
+        from .server import serve
+
+        serve(port=args.port, open_browser=True)
+        return 0
 
     # --- image mode ---
     if args.image:

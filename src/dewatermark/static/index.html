@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dewatermark — Strip AI Watermarks & Steganography</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
+  --danger: #f85149; --success: #3fb950; --mono: 'SF Mono', 'Fira Code', monospace;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  padding: 2rem 1rem;
+}
+.container { max-width: 900px; width: 100%; }
+header { text-align: center; margin-bottom: 2rem; }
+h1 { font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem; }
+h1 .strike { text-decoration: line-through; text-decoration-color: var(--danger); color: var(--text-dim); }
+.subtitle { color: var(--text-dim); font-size: 1rem; }
+.badges { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+.badge { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 0.25rem 0.75rem; font-size: 0.8rem; color: var(--text-dim); }
+.toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+button {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 0.6rem 1.2rem; font-size: 0.9rem; cursor: pointer;
+  transition: all 0.15s; font-weight: 500;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+button.primary:hover { opacity: 0.85; color: #000; }
+button.danger:hover { border-color: var(--danger); color: var(--danger); }
+.toggle-group { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-left: auto; }
+label { font-size: 0.85rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+label input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+textarea {
+  width: 100%; min-height: 280px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 1rem; font-family: var(--mono);
+  font-size: 0.875rem; line-height: 1.6; resize: vertical; outline: none;
+}
+textarea:focus { border-color: var(--accent); }
+.output-wrap { margin-top: 1rem; position: relative; }
+.copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.35rem 0.8rem; font-size: 0.8rem; border-radius: 6px; }
+.report { margin-top: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 0.85rem; display: none; }
+.report.visible { display: block; }
+.report-title { font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+.stat { display: inline-block; margin-right: 1.5rem; color: var(--text-dim); }
+.stat strong { color: var(--text); }
+.findings { margin-top: 0.5rem; }
+.finding { padding: 0.3rem 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.8rem; color: var(--text-dim); }
+.finding:last-child { border-bottom: none; }
+.finding .name { color: var(--danger); }
+.status-bar { margin-top: 1rem; text-align: center; font-size: 0.85rem; color: var(--text-dim); min-height: 1.2rem; }
+.status-bar.success { color: var(--success); }
+.status-bar.danger { color: var(--danger); }
+footer { margin-top: 2rem; text-align: center; color: var(--text-dim); font-size: 0.8rem; }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+.drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 2rem; text-align: center; color: var(--text-dim); margin-bottom: 1rem; display: none; }
+.drop-zone.active { border-color: var(--accent); color: var(--accent); }
+.drop-zone.visible { display: block; }
+@media (max-width: 600px) {
+  h1 { font-size: 1.5rem; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toggle-group { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1><span class="strike">water</span>mark</h1>
+    <p class="subtitle">Strip AI text watermarks, invisible Unicode steganography & provenance marks</p>
+    <div class="badges">
+      <span class="badge">Unicode Stego</span>
+      <span class="badge">Homoglyphs</span>
+      <span class="badge">Statistical Watermark</span>
+      <span class="badge">100% In-Browser</span>
+      <span class="badge">No Data Leaves Your Device</span>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="primary" id="btn-scrub">Scrub Text</button>
+    <button id="btn-scan">Scan Only</button>
+    <button class="danger" id="btn-clear">Clear</button>
+    <div class="toggle-group">
+      <label><input type="checkbox" id="opt-homoglyphs" checked> Homoglyphs</label>
+      <label><input type="checkbox" id="opt-nfkc" checked> NFKC</label>
+      <label><input type="checkbox" id="opt-paraphrase"> Paraphrase</label>
+      <span id="local-ui" style="display:none">
+        <button class="primary" id="btn-rewrite">Deep Rewrite (local LLM)</button>
+        <button id="btn-translate">Round-trip Translate</button>
+        <select id="model-picker" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.5rem 0.6rem;font-size:0.85rem"></select>
+      </span>
+    </div>
+  </div>
+
+  <textarea id="input" placeholder="Paste AI-generated text here..."></textarea>
+
+  <div class="output-wrap">
+    <textarea id="output" readonly placeholder="Clean text appears here..."></textarea>
+    <button class="copy-btn" id="btn-copy">Copy</button>
+  </div>
+
+  <div class="report" id="report">
+    <div class="report-title">Scan Report</div>
+    <div id="report-body"></div>
+  </div>
+
+  <div class="status-bar" id="status"></div>
+
+  <footer>
+    <p><a href="https://github.com/deand28/dewatermark-py">View source on GitHub</a> &middot; MIT License &middot; Runs entirely in your browser</p>
+  </footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Unicode invisible character tables (ported from Python core.py)
+// ---------------------------------------------------------------------------
+
+const NAMED_INVISIBLES = {
+  '\u00ad': 'soft-hyphen', '\u034f': 'combining-grapheme-joiner',
+  '\u061c': 'arabic-letter-mark', '\u180e': 'mongolian-vowel-separator',
+  '\u200b': 'zero-width-space', '\u200c': 'zero-width-non-joiner',
+  '\u200d': 'zero-width-joiner', '\u200e': 'left-to-right-mark',
+  '\u200f': 'right-to-left-mark', '\u202a': 'lre', '\u202b': 'rle',
+  '\u202c': 'pdf', '\u202d': 'lro', '\u202e': 'rlo',
+  '\u2060': 'word-joiner', '\u2061': 'function-application',
+  '\u2062': 'invisible-times', '\u2063': 'invisible-separator',
+  '\u2064': 'invisible-plus', '\u2066': 'lri', '\u2067': 'rli',
+  '\u2068': 'fsi', '\u2069': 'pdi',
+  '\u206a': 'inhibit-symmetric-swapping', '\u206b': 'activate-symmetric-swapping',
+  '\u206c': 'inhibit-arabic-form-shaping', '\u206d': 'activate-arabic-form-shaping',
+  '\u206e': 'national-digit-shapes', '\u206f': 'nominal-digit-shapes',
+  '\ufeff': 'bom-zwnbsp',
+  '\ufff9': 'interlinear-annotation-anchor', '\ufffa': 'interlinear-annotation-separator',
+  '\ufffb': 'interlinear-annotation-terminator',
+};
+
+const SPACE_MAP = {
+  '\u00a0': ' ', '\u1680': ' ', '\u2000': ' ', '\u2001': ' ',
+  '\u2002': ' ', '\u2003': ' ', '\u2004': ' ', '\u2005': ' ',
+  '\u2006': ' ', '\u2007': ' ', '\u2008': ' ', '\u2009': ' ',
+  '\u200a': ' ', '\u202f': ' ', '\u205f': ' ', '\u3000': ' ',
+};
+
+const HOMOGLYPHS = {
+  '\u0430': 'a', '\u0435': 'e', '\u043e': 'o', '\u0440': 'p', '\u0441': 'c', '\u0443': 'y', '\u0445': 'x',
+  '\u0410': 'A', '\u0412': 'B', '\u0415': 'E', '\u041a': 'K', '\u041c': 'M', '\u041d': 'H', '\u041e': 'O',
+  '\u0420': 'P', '\u0421': 'C', '\u0422': 'T', '\u0425': 'X',
+  '\u0391': 'A', '\u0392': 'B', '\u0395': 'E', '\u0396': 'Z', '\u0397': 'H', '\u0399': 'I', '\u039a': 'K',
+  '\u039c': 'M', '\u039d': 'N', '\u039f': 'O', '\u03a1': 'P', '\u03a4': 'T', '\u03a5': 'Y', '\u03a7': 'X',
+  '\u03b1': 'a', '\u03bf': 'o', '\u03bd': 'v',
+};
+// Fullwidth range (U+FF01..U+FF5E)
+for (let i = 0; i < 94; i++) HOMOGLYPHS[String.fromCharCode(0xFF01 + i)] = String.fromCharCode(0x21 + i);
+
+const KEEP_CONTROLS = new Set(['\t', '\n', '\r']);
+
+function inVSRange(cp) { return (cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0xE0100 && cp <= 0xE01EF); }
+function inTagRange(cp) { return cp === 0xE0001 || (cp >= 0xE0020 && cp <= 0xE007F); }
+
+// ---------------------------------------------------------------------------
+// Scan
+// ---------------------------------------------------------------------------
+
+function scanText(text) {
+  const counts = {};
+  const samples = {};
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const cp = ch.codePointAt(0);
+    let label = null;
+    if (NAMED_INVISIBLES[ch]) label = NAMED_INVISIBLES[ch];
+    else if (SPACE_MAP[ch] && ch !== ' ') label = 'exotic-space-U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+    else if (inVSRange(cp)) label = 'variation-selector-U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+    else if (inTagRange(cp)) label = 'unicode-tag-U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+    else {
+      // Check format/control/private-use via rough category
+      if (KEEP_CONTROLS.has(ch)) continue;
+      if (cp < 0x20 || (cp >= 0x7f && cp <= 0x9f)) label = 'control-U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+      else if (cp >= 0xE000 && cp <= 0xF8FF) label = 'private-use-U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+      else if (HOMOGLYPHS[ch] && HOMOGLYPHS[ch] !== ch) label = 'homoglyph ' + JSON.stringify(ch) + ' -> ' + JSON.stringify(HOMOGLYPHS[ch]);
+    }
+    if (label) {
+      counts[label] = (counts[label] || 0) + 1;
+      if (!samples[label]) samples[label] = [];
+      if (samples[label].length < 3) {
+        const ctx = text.substring(Math.max(0, i - 12), Math.min(text.length, i + 13)).replace(/\n/g, '\u21b5');
+        samples[label].push('@' + i + ': ...' + ctx + '...');
+      }
+    }
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const byType = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return { total_chars: text.length, suspicious_total: total, by_type: byType, samples };
+}
+
+// ---------------------------------------------------------------------------
+// Scrub
+// ---------------------------------------------------------------------------
+
+function scrubText(text, opts) {
+  opts = opts || {};
+  const stripHomoglyphs = opts.stripHomoglyphs !== false;
+  const normalizeSpaces = opts.normalizeSpaces !== false;
+  const useNfkc = opts.nfkc !== false;
+
+  const before = scanText(text);
+  let out = [];
+  const removed = {};
+  const mapped = {};
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const cp = ch.codePointAt(0);
+
+    if (NAMED_INVISIBLES[ch]) { removed[NAMED_INVISIBLES[ch]] = (removed[NAMED_INVISIBLES[ch]] || 0) + 1; continue; }
+    if (inVSRange(cp)) { const k = 'vs-U+' + cp.toString(16).toUpperCase().padStart(4, '0'); removed[k] = (removed[k] || 0) + 1; continue; }
+    if (inTagRange(cp)) { const k = 'tag-U+' + cp.toString(16).toUpperCase().padStart(4, '0'); removed[k] = (removed[k] || 0) + 1; continue; }
+
+    if (!KEEP_CONTROLS.has(ch)) {
+      if (cp < 0x20 || (cp >= 0x7f && cp <= 0x9f)) { const k = 'ctrl-U+' + cp.toString(16).toUpperCase().padStart(4, '0'); removed[k] = (removed[k] || 0) + 1; continue; }
+      if (cp >= 0xE000 && cp <= 0xF8FF) { const k = 'pua-U+' + cp.toString(16).toUpperCase().padStart(4, '0'); removed[k] = (removed[k] || 0) + 1; continue; }
+    }
+
+    if (normalizeSpaces && SPACE_MAP[ch]) { mapped['space'] = (mapped['space'] || 0) + 1; out.push(' '); continue; }
+    if (stripHomoglyphs && HOMOGLYPHS[ch] && HOMOGLYPHS[ch] !== ch) { mapped['homoglyph'] = (mapped['homoglyph'] || 0) + 1; out.push(HOMOGLYPHS[ch]); continue; }
+
+    out.push(ch);
+  }
+
+  let cleaned = out.join('');
+
+  if (useNfkc) cleaned = cleaned.normalize('NFKC');
+
+  if (normalizeSpaces) {
+    cleaned = cleaned.replace(/[^\S\n\r\t]+/g, ' ').replace(/[ \t]+\n/g, '\n');
+  }
+
+  const after = scanText(cleaned);
+  return { cleaned, before, after, removed, mapped };
+}
+
+// ---------------------------------------------------------------------------
+// Paraphrase (heuristic)
+// ---------------------------------------------------------------------------
+
+const SWAPS = [
+  [/\bdo not\b/gi, "don't"], [/\bdon't\b/gi, "do not"],
+  [/\bcannot\b/gi, "can't"], [/\bcan't\b/gi, "cannot"],
+  [/\bwill not\b/gi, "won't"], [/\bwon't\b/gi, "will not"],
+  [/\bit is\b/gi, "it's"], [/\bit's\b/gi, "it is"],
+  [/\bthat is\b/gi, "that's"], [/\bthat's\b/gi, "that is"],
+  [/\bwe are\b/gi, "we're"], [/\bthey're\b/gi, "they are"],
+  [/\bthey are\b/gi, "they're"], [/\bin order to\b/gi, "to"],
+  [/\bdue to the fact that\b/gi, "because"], [/\ba number of\b/gi, "several"],
+  [/\bin addition\b/gi, "also"], [/\bhowever\b/gi, "though"],
+  [/\btherefore\b/gi, "so"], [/\bthus\b/gi, "so"],
+  [/\butilize\b/gi, "use"], [/\butilize[sd]\b/gi, "used"],
+  [/\bconcerning\b/gi, "about"], [/\bregarding\b/gi, "about"],
+  [/\bprior to\b/gi, "before"], [/\bsubsequent to\b/gi, "after"],
+  [/\bassist in\b/gi, "help"], [/\bin the event that\b/gi, "if"],
+];
+
+function heuristicParaphrase(text) {
+  // Protect code blocks
+  const fences = [];
+  let body = text.replace(/```.*?```/gs, m => { fences.push(m); return '@@F' + (fences.length - 1) + '@@'; });
+  body = body.replace(/`[^`\n]+`/g, m => { fences.push(m); return '@@F' + (fences.length - 1) + '@@'; });
+
+  // Normalize quotes
+  body = body.replace(/\u201c/g, '"').replace(/\u201d/g, '"').replace(/\u2018/g, "'").replace(/\u2019/g, "'");
+
+  // Split into sentences, apply swaps to odd-indexed
+  const parts = body.split(/(?<=[.!?])\s+/);
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      for (const [pat, rep] of SWAPS) {
+        const newP = parts[i].replace(pat, rep);
+        if (newP !== parts[i]) { parts[i] = newP; break; }
+      }
+    }
+  }
+  body = parts.join(' ');
+
+  // Restore
+  for (let i = 0; i < fences.length; i++) body = body.replace('@@F' + i + '@@', fences[i]);
+  return body;
+}
+
+// ---------------------------------------------------------------------------
+// NFKC polyfill for older browsers (basic)
+// ---------------------------------------------------------------------------
+
+if (!String.prototype.normalize) {
+  String.prototype.normalize = function() { return this; };
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+
+const $input = document.getElementById('input');
+const $output = document.getElementById('output');
+const $report = document.getElementById('report');
+const $reportBody = document.getElementById('report-body');
+const $status = document.getElementById('status');
+const $btnScrub = document.getElementById('btn-scrub');
+const $btnScan = document.getElementById('btn-scan');
+const $btnClear = document.getElementById('btn-clear');
+const $btnCopy = document.getElementById('btn-copy');
+const $optHomoglyphs = document.getElementById('opt-homoglyphs');
+const $optNfkc = document.getElementById('opt-nfkc');
+const $optParaphrase = document.getElementById('opt-paraphrase');
+
+function setStatus(msg, type) {
+  $status.textContent = msg;
+  $status.className = 'status-bar' + (type ? ' ' + type : '');
+}
+
+function renderReport(report) {
+  if (report.suspicious_total === 0) {
+    $reportBody.innerHTML = '<span class="stat">No hidden Unicode characters found. Claude/GPT statistical watermarks are not character-based, so they won\'t appear here. Use Scrub + Paraphrase to break them.</span>';
+    $report.classList.add('visible');
+    return;
+  }
+  let html = '<div style="margin-bottom:0.5rem">';
+  html += '<span class="stat">Characters: <strong>' + report.total_chars + '</strong></span>';
+  html += '<span class="stat">Suspicious: <strong style="color:var(--danger)">' + report.suspicious_total + '</strong></span>';
+  html += '<span class="stat">Types: <strong>' + report.by_type.length + '</strong></span>';
+  html += '</div><div class="findings">';
+  for (const [name, count] of report.by_type) {
+    html += '<div class="finding"><span class="name">' + escapeHtml(name) + '</span>: ' + count + ' occurrence(s)</div>';
+  }
+  html += '</div>';
+  $reportBody.innerHTML = html;
+  $report.classList.add('visible');
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+$btnScrub.addEventListener('click', () => {
+  const text = $input.value;
+  if (!text.trim()) { setStatus('Paste some text first.', 'danger'); return; }
+  const result = scrubText(text, {
+    stripHomoglyphs: $optHomoglyphs.checked,
+    nfkc: $optNfkc.checked,
+  });
+  let cleaned = result.cleaned;
+  if ($optParaphrase.checked) {
+    cleaned = heuristicParaphrase(cleaned);
+  }
+  $output.value = cleaned;
+  renderReport(result.before);
+  const removedCount = Object.values(result.removed).reduce((a, b) => a + b, 0);
+  const mappedCount = Object.values(result.mapped).reduce((a, b) => a + b, 0);
+  if (result.before.suspicious_total > 0) {
+    setStatus('Stripped ' + removedCount + ' hidden chars, normalized ' + mappedCount + ' more.' + ($optParaphrase.checked ? ' Paraphrase applied to break statistical marks.' : ''), 'success');
+  } else {
+    let msg = 'No hidden Unicode characters found.';
+    if ($optParaphrase.checked) {
+      msg += ' Paraphrase applied to break statistical/model-level watermarks (e.g. Claude, GPT).';
+    } else {
+      msg += ' Note: Claude/GPT watermarks are statistical, not character-based. Enable Paraphrase to break them.';
+    }
+    setStatus(msg, $optParaphrase.checked ? 'success' : '');
+  }
+});
+
+$btnScan.addEventListener('click', () => {
+  const text = $input.value;
+  if (!text.trim()) { setStatus('Paste some text first.', 'danger'); return; }
+  const report = scanText(text);
+  $output.value = '';
+  renderReport(report);
+  if (report.suspicious_total > 0) {
+    setStatus('Found ' + report.suspicious_total + ' suspicious characters across ' + report.by_type.length + ' types.', 'danger');
+  } else {
+    setStatus('No hidden Unicode characters found. Note: Claude/GPT statistical watermarks are not character-based and won\'t show up in a scan. Use Scrub + Paraphrase to break them.', '');
+  }
+});
+
+$btnClear.addEventListener('click', () => {
+  $input.value = '';
+  $output.value = '';
+  $report.classList.remove('visible');
+  setStatus('');
+});
+
+$btnCopy.addEventListener('click', () => {
+  if (!$output.value) { setStatus('Nothing to copy yet.', 'danger'); return; }
+  $output.select();
+  navigator.clipboard.writeText($output.value).then(() => {
+    setStatus('Copied to clipboard.', 'success');
+  }).catch(() => {
+    document.execCommand('copy');
+    setStatus('Copied to clipboard.', 'success');
+  });
+});
+
+// Keyboard shortcut: Cmd/Ctrl+Enter to scrub
+$input.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    $btnScrub.click();
+  }
+});
+
+setStatus('Ready. Paste text and click Scrub, or press Cmd+Enter.');
+
+// ---------------------------------------------------------------------------
+// Local server mode: deep rewrite via Ollama (only when served by
+// `dewatermark --serve`; hidden on GitHub Pages where /api/health 404s)
+// ---------------------------------------------------------------------------
+
+const $localUI = document.getElementById('local-ui');
+const $btnRewrite = document.getElementById('btn-rewrite');
+const $btnTranslate = document.getElementById('btn-translate');
+const $modelPicker = document.getElementById('model-picker');
+let localHealth = null;
+
+fetch('/api/health').then(r => r.ok ? r.json() : null).then(h => {
+  if (!h || !h.local) return;
+  localHealth = h;
+  $localUI.style.display = 'inline-flex';
+  $localUI.style.gap = '0.5rem';
+  $localUI.style.alignItems = 'center';
+  $modelPicker.innerHTML = (h.models || []).map(m =>
+    `<option value="${m}"${m === h.default_model ? ' selected' : ''}>${m}</option>`
+  ).join('') || `<option>${h.default_model}</option>`;
+  setStatus(h.ollama
+    ? 'Local mode: Ollama up, ' + (h.models || []).length + ' models available.'
+    : 'Local mode: Ollama DOWN — Deep Rewrite unavailable. Run: ollama serve', 'danger');
+}).catch(() => {});
+
+async function deepAttack(endpoint, label) {
+  const text = $input.value;
+  if (!text.trim()) { setStatus('Paste some text first.', 'danger'); return; }
+  if (!localHealth || !localHealth.ollama) {
+    setStatus('Ollama is down. Start it with: ollama serve', 'danger'); return;
+  }
+  setStatus('Working: ' + label + ' (can take 5-30s)...', '');
+  $btnRewrite.disabled = $btnTranslate.disabled = true;
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, model: $modelPicker.value}),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    $output.value = d.text;
+    const before = scanText(text);
+    renderReport(before);
+    setStatus(label + ' done via ' + (d.backend || d.route || 'local') +
+      '. Token stream rewritten: statistical watermark destroyed.', 'success');
+  } catch (e) {
+    setStatus('Failed: ' + e.message, 'danger');
+  } finally {
+    $btnRewrite.disabled = $btnTranslate.disabled = false;
+  }
+}
+
+$btnRewrite.addEventListener('click', () => deepAttack('/api/rewrite', 'Deep rewrite'));
+$btnTranslate.addEventListener('click', () => deepAttack('/api/translate', 'Round-trip translation'));
+</script>
+</body>
+</html>
